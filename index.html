@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AVSync - MVP</title>
+  <title>AVSync AI - MVP</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
@@ -35,16 +35,32 @@
         setFeedback({ ...feedback, [e.target.name]: e.target.value });
       };
 
-      const handleFeedbackSubmit = (e) => {
+      const handleFeedbackSubmit = async (e) => {
         e.preventDefault();
-        alert("Thank you for your feedback! We'll use it to improve AVSync AI.");
-        setFeedback({ usefulness: "", features: "", interest: "" });
+        const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLScsYueijd9OXiFUuBZdxGSCN2mVh-mekZYTlHT6cCXGYrXvNw/formResponse";
+        const formData = new FormData();
+        formData.append("entry.1821405308", feedback.usefulness);
+        formData.append("entry.1548474053", feedback.features);
+        formData.append("entry.1659625676", feedback.interest);
+
+        try {
+          await fetch(formUrl, {
+            method: "POST",
+            body: formData,
+            mode: "no-cors"
+          });
+          alert("Thank you for your feedback! It has been submitted successfully.");
+          setFeedback({ usefulness: "", features: "", interest: "" });
+        } catch (error) {
+          alert("Error submitting feedback. Please try again.");
+          console.error(error);
+        }
       };
 
       const renderLanding = () => (
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Welcome to AVSync </h1>
-          <p className="text-lg mb-6">Streamlining AV and IT workflows with automated/custom training and support. Designed for 2025's hybrid work environments.</p>
+          <h1 className="text-4xl font-bold mb-4">Welcome to AVSync AI</h1>
+          <p className="text-lg mb-6">Streamlining AV and IT workflows with AI-driven training and support. Designed for 2025's hybrid work environments.</p>
           <p className="text-md mb-4">Our MVP offers automated training for AV equipment and a basic AI chatbot for troubleshooting. Try it out and share your feedback!</p>
           <div className="space-x-4">
             <button onClick={() => setCurrentSection("training")} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Explore Training</button>
