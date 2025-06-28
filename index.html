@@ -3,31 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AVSync - MVP</title>
+  <title>AVSync - AI-Powered AV Support</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .chat-bubble { animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const knowledgeBase = {
-      "how do i reset a crestron panel": "To reset a Crestron panel, press and hold the reset button for 10 seconds. Ensure the panel is powered on. If issues persist, check the network connection or consult the manual.",
-      "how to connect to microsoft teams rooms": "Ensure the room system is powered on. Open the Teams app, sign in with your credentials, and select the meeting. Check HDMI and network connections if the display fails.",
-      "troubleshoot projector not displaying": "Verify the projector is powered on and the correct input source is selected. Check cable connections (HDMI/VGA). Restart the projector and source device."
+      "how do i reset a crestron panel": "To reset a Crestron panel:\n\n1. Locate the reset button (usually on the back or side)\n2. Press and hold for 10-15 seconds while powered on\n3. Release when the panel restarts\n4. Wait for full boot-up (2-3 minutes)\n5. If issues persist, check network connection and consult your system administrator",
+      "how to connect to microsoft teams rooms": "To connect to Microsoft Teams Rooms:\n\n1. Ensure the room system is powered on\n2. Check that all displays are connected via HDMI\n3. Open the Teams app on the touch panel\n4. Sign in with your organization credentials\n5. Join your meeting by tapping 'Join Microsoft Teams Meeting'\n6. Test audio/video before the meeting starts\n\nTroubleshooting: Verify network connectivity and restart the system if needed",
+      "troubleshoot projector not displaying": "Projector troubleshooting steps:\n\n1. Check power - ensure projector is on and lamp is functioning\n2. Verify input source - select correct HDMI/VGA input\n3. Check cable connections - reseat all cables firmly\n4. Test with different source device\n5. Check projector settings - reset to factory defaults if needed\n6. Clean air filters if overheating\n7. Replace lamp if image is dim\n\nIf problems persist, contact your AV support team",
+      "audio not working in conference room": "Conference room audio troubleshooting:\n\n1. Check volume levels on all devices\n2. Verify microphone is not muted\n3. Test different audio sources\n4. Check cable connections to speakers\n5. Restart audio processing equipment\n6. Verify correct audio routing in DSP\n7. Test with known working device\n\nFor persistent issues, check with your AV technician",
+      "how to use wireless presentation": "Wireless presentation setup:\n\n1. Connect to the room's wireless network\n2. Download the presentation app (AirPlay, Miracast, or proprietary)\n3. Select the room display from available devices\n4. Enter PIN if prompted (usually displayed on screen)\n5. Share your screen or specific application\n6. Use touch panel to control display settings\n\nNote: Some systems require specific software installation"
     };
 
     const App = () => {
       const [chatInput, setChatInput] = React.useState("");
-      const [chatResponse, setChatResponse] = React.useState("");
+      const [chatHistory, setChatHistory] = React.useState([]);
       const [feedback, setFeedback] = React.useState({ usefulness: "", features: "", interest: "" });
       const [currentSection, setCurrentSection] = React.useState("landing");
+      const [isTyping, setIsTyping] = React.useState(false);
 
       const handleChatSubmit = (e) => {
         e.preventDefault();
-        const response = knowledgeBase[chatInput.toLowerCase()] || "Sorry, I don't have an answer for that yet. Try rephrasing or check the training module.";
-        setChatResponse(response);
+        if (!chatInput.trim()) return;
+
+        const userMessage = { type: 'user', content: chatInput };
+        setChatHistory(prev => [...prev, userMessage]);
+        
+        setIsTyping(true);
+        
+        setTimeout(() => {
+          const response = knowledgeBase[chatInput.toLowerCase()] || 
+            "I don't have specific information about that topic yet. Here are some things I can help with:\n\n• Crestron panel resets\n• Microsoft Teams Rooms connection\n• Projector troubleshooting\n• Audio issues\n• Wireless presentation setup\n\nTry rephrasing your question or check the training module for step-by-step guides.";
+          
+          const botMessage = { type: 'bot', content: response };
+          setChatHistory(prev => [...prev, botMessage]);
+          setIsTyping(false);
+        }, 1000);
+
         setChatInput("");
       };
 
@@ -49,115 +83,267 @@
             body: formData,
             mode: "no-cors"
           });
-          alert("Thank you for your feedback! It has been submitted successfully.");
+          alert("🎉 Thank you for your feedback! Your input helps us build better AV solutions.");
           setFeedback({ usefulness: "", features: "", interest: "" });
         } catch (error) {
-          alert("Error submitting feedback. Please try again.");
+          alert("❌ Error submitting feedback. Please try again or contact us directly.");
           console.error(error);
         }
       };
 
+      const clearChat = () => {
+        setChatHistory([]);
+      };
+
       const renderLanding = () => (
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Welcome to AVSync </h1>
-          <p className="text-lg mb-6">Streamlining AV and IT workflows with training and support. Designed for 2025's hybrid work environments.</p>
-          <p className="text-md mb-4">Made from the r/CommercialAV folks. Try it out and share your feedback!</p>
-          <div className="space-x-4">
-            <button onClick={() => setCurrentSection("training")} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Explore Training</button>
-            <button onClick={() => setCurrentSection("chat")} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Try AI Chat</button>
-            <button onClick={() => setCurrentSection("feedback")} className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Give Feedback</button>
+          <div className="mb-8">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <span className="text-white text-2xl font-bold">AV</span>
+            </div>
+            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Welcome to AVSync
+            </h1>
+            <p className="text-xl text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed">
+              AI-powered training and support for AV professionals. Streamlining workflows for 2025's hybrid work environments.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 max-w-lg mx-auto">
+              <p className="text-blue-800 font-medium">🚀 Made by the r/CommercialAV community</p>
+              <p className="text-blue-600 text-sm mt-1">Try our MVP and help shape the future of AV support!</p>
+            </div>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="bg-white border border-gray-200 rounded-xl p-6 hover-lift cursor-pointer" onClick={() => setCurrentSection("training")}>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                <span className="text-blue-600 text-xl">📚</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Training Modules</h3>
+              <p className="text-gray-600 mb-4">Step-by-step guides for common AV equipment and troubleshooting</p>
+              <button className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors w-full">
+                Explore Training
+              </button>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-6 hover-lift cursor-pointer" onClick={() => setCurrentSection("chat")}>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                <span className="text-green-600 text-xl">🤖</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">AI Support Chat</h3>
+              <p className="text-gray-600 mb-4">Get instant answers to your AV questions with our AI assistant</p>
+              <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors w-full">
+                Try AI Chat
+              </button>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-6 hover-lift cursor-pointer" onClick={() => setCurrentSection("feedback")}>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                <span className="text-purple-600 text-xl">💬</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Share Feedback</h3>
+              <p className="text-gray-600 mb-4">Help us build the perfect AV support platform for professionals</p>
+              <button className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors w-full">
+                Give Feedback
+              </button>
+            </div>
           </div>
         </div>
       );
 
       const renderTraining = () => (
         <div>
-          <h2 className="text-2xl font-bold mb-4">Training Module</h2>
-          <p className="mb-4">Select an AV equipment topic to view step-by-step guides:</p>
-          <ul className="list-disc pl-6 mb-6">
-            <li className="mb-2">
-              <button onClick={() => alert(knowledgeBase["how to connect to microsoft teams rooms"])} className="text-blue-500 hover:underline">Connect to Microsoft Teams Rooms</button>
-            </li>
-            <li className="mb-2">
-              <button onClick={() => alert(knowledgeBase["how do i reset a crestron panel"])} className="text-blue-500 hover:underline">Reset a Crestron Panel</button>
-            </li>
-            <li>
-              <button onClick={() => alert(knowledgeBase["troubleshoot projector not displaying"])} className="text-blue-500 hover:underline">Troubleshoot Projector Issues</button>
-            </li>
-          </ul>
-          <button onClick={() => setCurrentSection("landing")} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back to Home</button>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-3xl font-bold">Training Modules</h2>
+            <button onClick={() => setCurrentSection("landing")} className="text-gray-500 hover:text-gray-700 transition-colors">
+              ← Back to Home
+            </button>
+          </div>
+          
+          <p className="text-gray-600 mb-8">Select a topic to view detailed step-by-step guides:</p>
+          
+          <div className="space-y-4">
+            {[
+              { key: "how to connect to microsoft teams rooms", title: "Microsoft Teams Rooms Connection", icon: "📹", desc: "Complete setup and troubleshooting guide" },
+              { key: "how do i reset a crestron panel", title: "Crestron Panel Reset", icon: "🔄", desc: "Step-by-step reset procedures" },
+              { key: "troubleshoot projector not displaying", title: "Projector Display Issues", icon: "📽️", desc: "Comprehensive troubleshooting steps" },
+              { key: "audio not working in conference room", title: "Conference Room Audio", icon: "🔊", desc: "Audio system diagnostics and fixes" },
+              { key: "how to use wireless presentation", title: "Wireless Presentation Setup", icon: "📱", desc: "Wireless display connection guide" }
+            ].map((item, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover-lift cursor-pointer" 
+                   onClick={() => alert(knowledgeBase[item.key])}>
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl">{item.icon}</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 mb-1">{item.title}</h3>
+                    <p className="text-gray-600 text-sm">{item.desc}</p>
+                  </div>
+                  <div className="text-gray-400">→</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
 
       const renderChat = () => (
         <div>
-          <h2 className="text-2xl font-bold mb-4">AI Support Chat</h2>
-          <p className="mb-4">Ask a question about AV equipment (e.g., "How do I reset a Crestron panel?"):</p>
-          <div className="mb-4">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-3xl font-bold">AI Support Chat</h2>
+              <p className="text-gray-600">Get instant help with your AV questions</p>
+            </div>
+            <div className="flex space-x-2">
+              {chatHistory.length > 0 && (
+                <button onClick={clearChat} className="text-gray-500 hover:text-gray-700 px-3 py-1 rounded border border-gray-300 hover:border-gray-400 transition-colors text-sm">
+                  Clear Chat
+                </button>
+              )}
+              <button onClick={() => setCurrentSection("landing")} className="text-gray-500 hover:text-gray-700 transition-colors">
+                ← Back to Home
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 max-h-96 overflow-y-auto">
+            {chatHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <span className="text-green-600 text-2xl">🤖</span>
+                </div>
+                <p className="text-gray-600 mb-4">Hi! I'm your AV support assistant. Ask me about:</p>
+                <div className="flex flex-wrap justify-center gap-2 text-sm">
+                  {["Crestron panels", "Teams Rooms", "Projectors", "Audio issues", "Wireless presentation"].map((topic, i) => (
+                    <span key={i} className="bg-white px-3 py-1 rounded-full border border-gray-200">{topic}</span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {chatHistory.map((message, index) => (
+                  <div key={index} className={`chat-bubble flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.type === 'user' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-white border border-gray-200 text-gray-800'
+                    }`}>
+                      <pre className="whitespace-pre-wrap text-sm font-sans">{message.content}</pre>
+                    </div>
+                  </div>
+                ))}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-gray-200 px-4 py-2 rounded-lg">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full pulse-dot"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full pulse-dot" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full pulse-dot" style={{animationDelay: '0.4s'}}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleChatSubmit} className="flex space-x-2">
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Type your question..."
-              className="w-full p-2 border rounded"
+              placeholder="Ask about AV equipment, troubleshooting, or setup..."
+              className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
             />
-            <button onClick={handleChatSubmit} className="bg-green-500 text-white px-4 py-2 mt-2 rounded hover:bg-green-600">Ask</button>
-          </div>
-          {chatResponse && (
-            <div className="bg-gray-100 p-4 rounded">
-              <p><strong>Response:</strong> {chatResponse}</p>
-            </div>
-          )}
-          <button onClick={() => setCurrentSection("landing")} className="bg-gray-500 text-white px-4 py-2 mt-4 rounded hover:bg-gray-600">Back to Home</button>
+            <button 
+              type="submit" 
+              disabled={!chatInput.trim() || isTyping}
+              className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Send
+            </button>
+          </form>
         </div>
       );
 
       const renderFeedback = () => (
         <div>
-          <h2 className="text-2xl font-bold mb-4">Feedback</h2>
-          <p className="mb-4">Help us shape AVSync AI! Share your thoughts:</p>
-          <div className="mb-4">
-            <label className="block mb-2">How useful is this platform for your AV/IT needs?</label>
-            <textarea
-              name="usefulness"
-              value={feedback.usefulness}
-              onChange={handleFeedbackChange}
-              className="w-full p-2 border rounded"
-              placeholder="Share your thoughts..."
-            ></textarea>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-3xl font-bold">Share Your Feedback</h2>
+              <p className="text-gray-600">Help us build the perfect AV support platform</p>
+            </div>
+            <button onClick={() => setCurrentSection("landing")} className="text-gray-500 hover:text-gray-700 transition-colors">
+              ← Back to Home
+            </button>
           </div>
-          <div className="mb-4">
-            <label className="block mb-2">What features would you like to see?</label>
-            <textarea
-              name="features"
-              value={feedback.features}
-              onChange={handleFeedbackChange}
-              className="w-full p-2 border rounded"
-              placeholder="E.g., pricing database, interoperability tools..."
-            ></textarea>
-          </div>
-          <div className="mb-4">
-            <label className="block mb-2">Would you like to be a beta tester and help shape the roadmap of the product? If yes, drop your email below and I’ll be in touch</label>
-            <textarea
-              name="interest"
-              value={feedback.interest}
-              onChange={handleFeedbackChange}
-              className="w-full p-2 border rounded"
-              placeholder="Yes/No and why..."
-            ></textarea>
-          </div>
-          <button onClick={handleFeedbackSubmit} className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Submit Feedback</button>
-          <button onClick={() => setCurrentSection("landing")} className="bg-gray-500 text-white px-4 py-2 mt-2 ml-2 rounded hover:bg-gray-600">Back to Home</button>
+
+          <form onSubmit={handleFeedbackSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How useful is this platform for your AV/IT needs? ⭐
+              </label>
+              <textarea
+                name="usefulness"
+                value={feedback.usefulness}
+                onChange={handleFeedbackChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                rows="3"
+                placeholder="Share your experience with the platform..."
+              ></textarea>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                What features would you like to see? 💡
+              </label>
+              <textarea
+                name="features"
+                value={feedback.features}
+                onChange={handleFeedbackChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                rows="3"
+                placeholder="E.g., pricing database, equipment compatibility checker, advanced diagnostics..."
+              ></textarea>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Interested in beta testing? 🚀
+              </label>
+              <textarea
+                name="interest"
+                value={feedback.interest}
+                onChange={handleFeedbackChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                rows="3"
+                placeholder="Yes/No and your email if interested. Help shape the roadmap!"
+              ></textarea>
+            </div>
+
+            <div className="flex space-x-4">
+              <button 
+                type="submit" 
+                className="bg-purple-500 text-white px-8 py-3 rounded-lg hover:bg-purple-600 transition-colors font-medium"
+              >
+                Submit Feedback
+              </button>
+            </div>
+          </form>
         </div>
       );
 
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full">
-            {currentSection === "landing" && renderLanding()}
-            {currentSection === "training" && renderTraining()}
-            {currentSection === "chat" && renderChat()}
-            {currentSection === "feedback" && renderFeedback()}
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          <div className="container mx-auto px-4 py-8">
+            <div className="bg-white rounded-2xl shadow-xl max-w-6xl mx-auto overflow-hidden">
+              <div className="p-8 lg:p-12">
+                {currentSection === "landing" && renderLanding()}
+                {currentSection === "training" && renderTraining()}
+                {currentSection === "chat" && renderChat()}
+                {currentSection === "feedback" && renderFeedback()}
+              </div>
+            </div>
           </div>
         </div>
       );
