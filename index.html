@@ -8,6 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="trainingData.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -24,6 +25,42 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+      transition: width 0.3s ease;
+    }
+    .difficulty-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      font-weight: 500;
+    }
+    .difficulty-beginner { background-color: #dcfce7; color: #166534; }
+    .difficulty-intermediate { background-color: #fef3c7; color: #92400e; }
+    .difficulty-advanced { background-color: #fecaca; color: #991b1b; }
+    .modal-overlay {
+      background-color: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+    }
+    .guide-content {
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .guide-content h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 1rem; color: #1f2937; }
+    .guide-content h2 { font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 0.75rem 0; color: #374151; }
+    .guide-content h3 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem 0; color: #4b5563; }
+    .guide-content p { margin-bottom: 1rem; line-height: 1.6; }
+    .guide-content ul, .guide-content ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+    .guide-content li { margin-bottom: 0.5rem; line-height: 1.6; }
+    .guide-content strong { font-weight: 600; color: #1f2937; }
+    .guide-content code { background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-family: monospace; }
+    .guide-content pre { background-color: #f9fafb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+    .search-highlight { background-color: #fef3c7; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
   </style>
 </head>
 <body>
@@ -43,6 +80,23 @@
       const [feedback, setFeedback] = React.useState({ usefulness: "", features: "", interest: "" });
       const [currentSection, setCurrentSection] = React.useState("landing");
       const [isTyping, setIsTyping] = React.useState(false);
+      
+      // Training module state
+      const [selectedCategory, setSelectedCategory] = React.useState(null);
+      const [selectedGuide, setSelectedGuide] = React.useState(null);
+      const [searchTerm, setSearchTerm] = React.useState("");
+      const [completedGuides, setCompletedGuides] = React.useState(() => {
+        const saved = localStorage.getItem('avsync-completed-guides');
+        return saved ? JSON.parse(saved) : [];
+      });
+      const [currentQuiz, setCurrentQuiz] = React.useState(null);
+      const [quizAnswers, setQuizAnswers] = React.useState({});
+      const [quizResults, setQuizResults] = React.useState(null);
+
+      // Save completed guides to localStorage
+      React.useEffect(() => {
+        localStorage.setItem('avsync-completed-guides', JSON.stringify(completedGuides));
+      }, [completedGuides]);
 
       const handleChatSubmit = (e) => {
         e.preventDefault();
@@ -95,8 +149,102 @@
         setChatHistory([]);
       };
 
+      const markGuideComplete = (guideId) => {
+        if (!completedGuides.includes(guideId)) {
+          setCompletedGuides(prev => [...prev, guideId]);
+        }
+      };
+
+      const getFilteredGuides = () => {
+        if (!window.trainingData) return [];
+        
+        let guides = window.trainingData.guides;
+        
+        if (selectedCategory) {
+          guides = guides.filter(guide => guide.categoryId === selectedCategory);
+        }
+        
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase();
+          guides = guides.filter(guide => 
+            guide.title.toLowerCase().includes(term) ||
+            guide.overview.toLowerCase().includes(term) ||
+            guide.tags.some(tag => tag.toLowerCase().includes(term))
+          );
+        }
+        
+        return guides;
+      };
+
+      const highlightSearchTerm = (text) => {
+        if (!searchTerm) return text;
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        return text.replace(regex, '<span class="search-highlight">$1</span>');
+      };
+
+      const formatContent = (content) => {
+        return content.split('\n').map((line, index) => {
+          if (line.startsWith('# ')) {
+            return <h1 key={index}>{line.substring(2)}</h1>;
+          } else if (line.startsWith('## ')) {
+            return <h2 key={index}>{line.substring(3)}</h2>;
+          } else if (line.startsWith('### ')) {
+            return <h3 key={index}>{line.substring(4)}</h3>;
+          } else if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ')) {
+            return <li key={index}>{line.substring(3)}</li>;
+          } else if (line.startsWith('- ')) {
+            return <li key={index}>{line.substring(2)}</li>;
+          } else if (line.trim() === '') {
+            return <br key={index} />;
+          } else if (line.startsWith('*') && line.endsWith('*')) {
+            return <p key={index} className="text-sm text-gray-600 italic mt-4">{line.substring(1, line.length - 1)}</p>;
+          } else {
+            return <p key={index}>{line}</p>;
+          }
+        });
+      };
+
+      const startQuiz = (guide) => {
+        if (guide.quiz && guide.quiz.length > 0) {
+          setCurrentQuiz(guide);
+          setQuizAnswers({});
+          setQuizResults(null);
+        }
+      };
+
+      const handleQuizAnswer = (questionIndex, answerIndex) => {
+        setQuizAnswers(prev => ({
+          ...prev,
+          [questionIndex]: answerIndex
+        }));
+      };
+
+      const submitQuiz = () => {
+        const results = currentQuiz.quiz.map((question, index) => ({
+          question: question.question,
+          userAnswer: quizAnswers[index],
+          correctAnswer: question.correct,
+          isCorrect: quizAnswers[index] === question.correct,
+          explanation: question.explanation
+        }));
+        
+        const score = results.filter(r => r.isCorrect).length;
+        const percentage = Math.round((score / results.length) * 100);
+        
+        setQuizResults({
+          results,
+          score,
+          total: results.length,
+          percentage
+        });
+
+        if (percentage >= 70) {
+          markGuideComplete(currentQuiz.id);
+        }
+      };
+
       const renderLanding = () => (
-        <div className="text-center">
+        <div className="text-center fade-in">
           <div className="mb-8">
             <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
               <span className="text-white text-2xl font-bold">AV</span>
@@ -109,7 +257,7 @@
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 max-w-lg mx-auto">
               <p className="text-blue-800 font-medium">🚀 Made by the r/CommercialAV community</p>
-              <p className="text-blue-600 text-sm mt-1">Try our MVP and help shape the future of AV support!</p>
+              <p className="text-blue-600 text-sm mt-1">Try our enhanced training platform with interactive guides and quizzes!</p>
             </div>
           </div>
           
@@ -118,8 +266,11 @@
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
                 <span className="text-blue-600 text-xl">📚</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Training Modules</h3>
-              <p className="text-gray-600 mb-4">Step-by-step guides for common AV equipment and troubleshooting</p>
+              <h3 className="text-xl font-semibold mb-2">Enhanced Training</h3>
+              <p className="text-gray-600 mb-4">Interactive guides, quizzes, and progress tracking for AV professionals</p>
+              <div className="text-sm text-gray-500 mb-4">
+                {window.trainingData ? `${window.trainingData.guides.length} comprehensive guides` : 'Loading...'}
+              </div>
               <button className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors w-full">
                 Explore Training
               </button>
@@ -150,45 +301,320 @@
         </div>
       );
 
-      const renderTraining = () => (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold">Training Modules</h2>
-            <button onClick={() => setCurrentSection("landing")} className="text-gray-500 hover:text-gray-700 transition-colors">
-              ← Back to Home
-            </button>
-          </div>
-          
-          <p className="text-gray-600 mb-8">Select a topic to view detailed step-by-step guides:</p>
-          
-          <div className="space-y-4">
-            {[
-              { key: "how to connect to microsoft teams rooms", title: "Microsoft Teams Rooms Connection", icon: "📹", desc: "Complete setup and troubleshooting guide" },
-              { key: "how do i reset a crestron panel", title: "Crestron Panel Reset", icon: "🔄", desc: "Step-by-step reset procedures" },
-              { key: "troubleshoot projector not displaying", title: "Projector Display Issues", icon: "📽️", desc: "Comprehensive troubleshooting steps" },
-              { key: "audio not working in conference room", title: "Conference Room Audio", icon: "🔊", desc: "Audio system diagnostics and fixes" },
-              { key: "how to use wireless presentation", title: "Wireless Presentation Setup", icon: "📱", desc: "Wireless display connection guide" }
-            ].map((item, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover-lift cursor-pointer" 
-                   onClick={() => alert(knowledgeBase[item.key])}>
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">{item.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 mb-1">{item.title}</h3>
-                    <p className="text-gray-600 text-sm">{item.desc}</p>
-                  </div>
-                  <div className="text-gray-400">→</div>
+      const renderTraining = () => {
+        if (!window.trainingData) {
+          return (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading training data...</p>
+            </div>
+          );
+        }
+
+        const categories = window.trainingData.categories;
+        const filteredGuides = getFilteredGuides();
+        const totalGuides = window.trainingData.guides.length;
+        const completedCount = completedGuides.length;
+        const progressPercentage = Math.round((completedCount / totalGuides) * 100);
+
+        return (
+          <div className="fade-in">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-3xl font-bold">Professional AV Training</h2>
+                <p className="text-gray-600">Industry-standard guides based on AVIXA CTS curriculum</p>
+              </div>
+              <button onClick={() => setCurrentSection("landing")} className="text-gray-500 hover:text-gray-700 transition-colors">
+                ← Back to Home
+              </button>
+            </div>
+
+            {/* Progress Overview */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Your Progress</h3>
+                  <p className="text-gray-600">{completedCount} of {totalGuides} guides completed</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-600">{progressPercentage}%</div>
+                  <div className="text-sm text-gray-500">Complete</div>
                 </div>
               </div>
-            ))}
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="progress-bar h-3 rounded-full" style={{width: `${progressPercentage}%`}}></div>
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="mb-8">
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search guides by title, content, or tags..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+                <select
+                  value={selectedCategory || ''}
+                  onChange={(e) => setSelectedCategory(e.target.value || null)}
+                  className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Category Overview */}
+              {!selectedCategory && !searchTerm && (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                  {categories.map(category => {
+                    const categoryGuides = window.trainingData.guides.filter(g => g.categoryId === category.id);
+                    const completedInCategory = categoryGuides.filter(g => completedGuides.includes(g.id)).length;
+                    
+                    return (
+                      <div
+                        key={category.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4 hover-lift cursor-pointer"
+                        onClick={() => setSelectedCategory(category.id)}
+                      >
+                        <div className="flex items-center mb-3">
+                          <span className="text-2xl mr-3">{category.icon}</span>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-800">{category.name}</h3>
+                            <p className="text-sm text-gray-600">{completedInCategory}/{categoryGuides.length} completed</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3">{category.description}</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="progress-bar h-2 rounded-full" 
+                            style={{width: `${categoryGuides.length ? (completedInCategory / categoryGuides.length) * 100 : 0}%`}}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Guides List */}
+            <div className="space-y-4">
+              {filteredGuides.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-6xl mb-4">🔍</div>
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No guides found</h3>
+                  <p className="text-gray-500">Try adjusting your search terms or category filter</p>
+                </div>
+              ) : (
+                filteredGuides.map(guide => {
+                  const isCompleted = completedGuides.includes(guide.id);
+                  const category = categories.find(c => c.id === guide.categoryId);
+                  
+                  return (
+                    <div
+                      key={guide.id}
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover-lift cursor-pointer transition-all"
+                      onClick={() => setSelectedGuide(guide)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-2">
+                            <span className="text-lg mr-2">{category?.icon}</span>
+                            <h3 
+                              className="text-lg font-semibold text-blue-600 hover:text-blue-700"
+                              dangerouslySetInnerHTML={{__html: highlightSearchTerm(guide.title)}}
+                            />
+                            {isCompleted && (
+                              <span className="ml-2 text-green-500 text-sm">✓ Completed</span>
+                            )}
+                          </div>
+                          <p 
+                            className="text-gray-600 mb-3"
+                            dangerouslySetInnerHTML={{__html: highlightSearchTerm(guide.overview)}}
+                          />
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            <span className={`difficulty-badge difficulty-${guide.difficulty.toLowerCase()}`}>
+                              {guide.difficulty}
+                            </span>
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                              {guide.duration}
+                            </span>
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                              Updated: {guide.lastUpdated}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {guide.tags.map(tag => (
+                              <span key={tag} className="bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded">
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="text-gray-400 ml-4">→</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
-      );
+        );
+      };
+
+      const renderGuideModal = () => {
+        if (!selectedGuide) return null;
+
+        return (
+          <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">{selectedGuide.title}</h2>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className={`difficulty-badge difficulty-${selectedGuide.difficulty.toLowerCase()}`}>
+                      {selectedGuide.difficulty}
+                    </span>
+                    <span className="text-sm text-gray-500">{selectedGuide.duration}</span>
+                    <span className="text-sm text-gray-500">Updated: {selectedGuide.lastUpdated}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {selectedGuide.quiz && selectedGuide.quiz.length > 0 && (
+                    <button
+                      onClick={() => startQuiz(selectedGuide)}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
+                    >
+                      Take Quiz
+                    </button>
+                  )}
+                  <button
+                    onClick={() => markGuideComplete(selectedGuide.id)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                  >
+                    Mark Complete
+                  </button>
+                  <button
+                    onClick={() => setSelectedGuide(null)}
+                    className="text-gray-500 hover:text-gray-700 p-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              
+              <div className="guide-content p-6">
+                {formatContent(selectedGuide.content)}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderQuizModal = () => {
+        if (!currentQuiz) return null;
+
+        return (
+          <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Quiz: {currentQuiz.title}</h2>
+                <button
+                  onClick={() => setCurrentQuiz(null)}
+                  className="text-gray-500 hover:text-gray-700 p-2"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                {!quizResults ? (
+                  <div>
+                    {currentQuiz.quiz.map((question, qIndex) => (
+                      <div key={qIndex} className="mb-6">
+                        <h3 className="font-semibold mb-3">
+                          {qIndex + 1}. {question.question}
+                        </h3>
+                        <div className="space-y-2">
+                          {question.options.map((option, oIndex) => (
+                            <label key={oIndex} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`question-${qIndex}`}
+                                value={oIndex}
+                                checked={quizAnswers[qIndex] === oIndex}
+                                onChange={() => handleQuizAnswer(qIndex, oIndex)}
+                                className="mr-3"
+                              />
+                              {option}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                      <button
+                        onClick={submitQuiz}
+                        disabled={Object.keys(quizAnswers).length < currentQuiz.quiz.length}
+                        className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Submit Quiz
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-center mb-6">
+                      <div className={`text-4xl font-bold mb-2 ${quizResults.percentage >= 70 ? 'text-green-600' : 'text-red-600'}`}>
+                        {quizResults.percentage}%
+                      </div>
+                      <p className="text-gray-600">
+                        {quizResults.score} out of {quizResults.total} correct
+                      </p>
+                      {quizResults.percentage >= 70 ? (
+                        <p className="text-green-600 font-semibold mt-2">🎉 Congratulations! Guide marked as completed.</p>
+                      ) : (
+                        <p className="text-red-600 font-semibold mt-2">Study the guide and try again to pass (70% required).</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {quizResults.results.map((result, index) => (
+                        <div key={index} className={`p-4 rounded-lg border ${result.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold">{index + 1}. {result.question}</h4>
+                            <span className={`text-sm font-semibold ${result.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                              {result.isCorrect ? '✓' : '✗'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{result.explanation}</p>
+                          {!result.isCorrect && (
+                            <p className="text-sm">
+                              <span className="text-red-600">Your answer:</span> {currentQuiz.quiz[index].options[result.userAnswer]} <br/>
+                              <span className="text-green-600">Correct answer:</span> {currentQuiz.quiz[index].options[result.correctAnswer]}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
 
       const renderChat = () => (
-        <div>
+        <div className="fade-in">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-3xl font-bold">AI Support Chat</h2>
@@ -267,7 +693,7 @@
       );
 
       const renderFeedback = () => (
-        <div>
+        <div className="fade-in">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-3xl font-bold">Share Your Feedback</h2>
@@ -281,7 +707,7 @@
           <form onSubmit={handleFeedbackSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                How useful is this platform for your AV/IT needs? ⭐
+                How useful is this enhanced training platform for your AV/IT needs? ⭐
               </label>
               <textarea
                 name="usefulness"
@@ -289,13 +715,13 @@
                 onChange={handleFeedbackChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 rows="3"
-                placeholder="Share your experience with the platform..."
+                placeholder="Share your experience with the interactive guides, quizzes, and progress tracking..."
               ></textarea>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                What features would you like to see? 💡
+                What additional features would you like to see? 💡
               </label>
               <textarea
                 name="features"
@@ -303,13 +729,13 @@
                 onChange={handleFeedbackChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 rows="3"
-                placeholder="E.g., pricing database, equipment compatibility checker, advanced diagnostics..."
+                placeholder="E.g., video tutorials, equipment database, certification tracking, mobile app..."
               ></textarea>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Interested in beta testing? 🚀
+                Interested in beta testing advanced features? 🚀
               </label>
               <textarea
                 name="interest"
@@ -317,7 +743,7 @@
                 onChange={handleFeedbackChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                 rows="3"
-                placeholder="Yes/No and your email if interested. Help shape the roadmap!"
+                placeholder="Yes/No and your email if interested. Help shape the future of AV training!"
               ></textarea>
             </div>
 
@@ -345,6 +771,9 @@
               </div>
             </div>
           </div>
+          
+          {renderGuideModal()}
+          {renderQuizModal()}
         </div>
       );
     };
